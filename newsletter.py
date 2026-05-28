@@ -86,3 +86,28 @@ def fetch_hf_papers(max_results: int = 6) -> list[dict]:
     except Exception as e:
         print(f"  [AVISO] Falha ao coletar HF Daily Papers: {e}")
         return []
+
+
+MAX_PAPERS = 12
+
+
+def deduplicate_papers(papers: list[dict]) -> list[dict]:
+    seen = set()
+    unique = []
+    for paper in papers:
+        key = paper["title"].lower().strip()[:60]
+        if key not in seen:
+            seen.add(key)
+            unique.append(paper)
+    return unique
+
+
+def collect_all_papers() -> list[dict]:
+    print("[1/4] Coletando papers...")
+    arxiv_papers = fetch_all_arxiv_papers(max_per_category=3)
+    hf_papers = fetch_hf_papers(max_results=6)
+    all_papers = arxiv_papers + hf_papers
+    unique = deduplicate_papers(all_papers)
+    selected = unique[:MAX_PAPERS]
+    print(f"[2/4] {len(selected)} papers após deduplicação (de {len(all_papers)} coletados)")
+    return selected

@@ -213,3 +213,44 @@ def render_email(papers: list[dict], edition_date: str) -> str:
   </div>
 </body>
 </html>"""
+
+
+def send_email(html_content: str, subject: str) -> None:
+    resend_key = os.environ["RESEND_API_KEY"]
+    email_from = os.environ["EMAIL_FROM"]
+    email_to = os.environ["EMAIL_TO"]
+
+    payload = {
+        "from": email_from,
+        "to": [email_to],
+        "subject": subject,
+        "html": html_content,
+    }
+    response = httpx.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
+        json=payload,
+        timeout=30,
+    )
+    response.raise_for_status()
+    print(f"[4/4] Email enviado! ID: {response.json().get('id', 'N/A')}")
+
+
+def main() -> None:
+    import datetime
+    today = datetime.date.today()
+    edition_date = today.strftime("%d/%m/%Y")
+
+    papers = collect_all_papers()
+    if not papers:
+        raise RuntimeError("Nenhum paper coletado — abortando.")
+
+    papers = summarize_papers(papers)
+
+    subject = f"Papers da Semana · {edition_date} · {len(papers)} papers selecionados"
+    html = render_email(papers, edition_date)
+    send_email(html, subject)
+
+
+if __name__ == "__main__":
+    main()

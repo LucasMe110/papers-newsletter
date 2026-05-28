@@ -49,3 +49,40 @@ def fetch_all_arxiv_papers(max_per_category: int = 3) -> list[dict]:
         batch = fetch_arxiv_papers(category, max_per_category)
         papers.extend(batch)
     return papers
+
+
+HF_PAPERS_URL = "https://huggingface.co/api/daily_papers"
+
+
+def fetch_hf_papers(max_results: int = 6) -> list[dict]:
+    try:
+        response = httpx.get(HF_PAPERS_URL, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        papers = []
+        for item in data[:max_results]:
+            paper = item.get("paper", {})
+            title = (paper.get("title") or "").strip()
+            abstract = (paper.get("summary") or "").strip()[:800]
+            published = (item.get("publishedAt") or "")[:10]
+            authors = [a.get("name", "") for a in paper.get("authors", [])]
+            paper_id = paper.get("id", "")
+            if paper_id and paper_id.replace(".", "").replace("-", "").isdigit() or (len(paper_id) > 4 and paper_id[4] == "."):
+                link = f"https://arxiv.org/abs/{paper_id}"
+            else:
+                link = f"https://huggingface.co/papers/{paper_id}"
+            if not title:
+                continue
+            papers.append({
+                "title": title,
+                "abstract": abstract,
+                "authors": authors,
+                "published": published,
+                "link": link,
+                "source": "huggingface",
+                "category": "hf-daily",
+            })
+        return papers
+    except Exception as e:
+        print(f"  [AVISO] Falha ao coletar HF Daily Papers: {e}")
+        return []

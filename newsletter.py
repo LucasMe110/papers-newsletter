@@ -167,3 +167,49 @@ def summarize_papers(papers: list[dict]) -> list[dict]:
             "nivel": s.get("nivel", "Intermediário"),
         })
     return enriched
+
+
+CATEGORY_NAMES = {
+    "cs.AI": "IA & Machine Learning",
+    "cs.LG": "IA & Machine Learning",
+    "cs.CL": "LLMs & NLP",
+    "cs.SE": "Engenharia de Software",
+    "cs.CV": "Visão Computacional",
+    "cs.HC": "HCI & Produto",
+    "econ.GN": "Negócios & Produto",
+    "hf-daily": "LLMs & IA Generativa",
+}
+
+
+def render_email(papers: list[dict], edition_date: str) -> str:
+    papers_html = ""
+    for paper in papers:
+        category_name = CATEGORY_NAMES.get(paper["category"], paper["category"])
+        authors_str = ", ".join(paper["authors"][:3])
+        if len(paper["authors"]) > 3:
+            authors_str += " et al."
+
+        relevancia_html = ""
+        if paper.get("relevancia"):
+            relevancia_html = f'<p style="font-size:14px;color:#4B5563;font-style:italic;margin:0 0 10px 0;">{paper["relevancia"]}</p>'
+
+        papers_html += f"""
+        <div style="margin-bottom:32px;">
+          <p style="font-size:12px;color:#9CA3AF;margin:0 0 4px 0;">{category_name} &nbsp;·&nbsp; {paper["nivel"]}</p>
+          <p style="font-size:15px;color:#111827;margin:0 0 6px 0;"><strong>{paper["title"]}</strong></p>
+          <p style="font-size:13px;color:#6B7280;margin:0 0 10px 0;">{authors_str} &nbsp;·&nbsp; {paper["published"]}</p>
+          <p style="font-size:15px;color:#111827;line-height:1.65;margin:0 0 10px 0;">{paper["resumo"]}</p>
+          {relevancia_html}<a href="{paper["link"]}" style="font-size:13px;color:#4F46E5;text-decoration:underline;">Ler paper completo →</a>
+        </div>"""
+
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#FFFFFF;font-family:Georgia,serif;">
+  <div style="max-width:600px;margin:0 auto;padding:40px 24px;">
+    <p style="font-size:13px;color:#9CA3AF;margin:0 0 40px 0;">Papers da Semana &nbsp;·&nbsp; {edition_date}</p>
+    {papers_html}
+    <p style="font-size:12px;color:#9CA3AF;margin:48px 0 0 0;">Você recebe este email porque se inscreveu na Papers Newsletter.</p>
+  </div>
+</body>
+</html>"""

@@ -1,5 +1,7 @@
+import json
 import os
 import xml.etree.ElementTree as ET
+import anthropic
 import httpx
 
 ARXIV_CATEGORIES = ["cs.AI", "cs.LG", "cs.CL", "cs.SE", "cs.CV", "cs.HC", "econ.GN"]
@@ -111,3 +113,57 @@ def collect_all_papers() -> list[dict]:
     selected = unique[:MAX_PAPERS]
     print(f"[2/4] {len(selected)} papers após deduplicação (de {len(all_papers)} coletados)")
     return selected
+
+
+SUMMARIZE_PROMPT = """Você é um assistente de curadoria acadêmica. Para cada paper abaixo, gere em português brasileiro:
+1. Um resumo de 2 a 3 frases claro e direto
+2. Uma frase de relevância prática ("Por que importa:")
+3. O nível de complexidade: Iniciante, Intermediário ou Avançado
+
+Responda com um JSON array, um objeto por paper, na mesma ordem dos papers fornecidos:
+[
+  {{"index": 0, "resumo": "...", "relevancia": "...", "nivel": "Intermediário"}},
+  ...
+]
+
+Responda APENAS com o JSON, sem markdown, sem explicações adicionais.
+
+Papers:
+{papers_text}"""
+
+
+def summarize_papers(papers: list[dict]) -> list[dict]:
+    print("[3/4] Sumarizando papers com Claude...")
+    papers_text = ""
+    for i, p in enumerate(papers):
+        authors_str = ", ".join(p["authors"][:3])
+        if len(p["authors"]) > 3:
+            authors_str += " et al."
+        papers_text += f"[{i}] Título: {p['title']}\nAutores: {authors_str}\nAbstract: {p['abstract']}\n\n"
+
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=4096,
+        messages=[{"role": "user", "content": SUMMARIZE_PROMPT.format(papers_text=papers_text)}],
+    )
+    raw = message.content[0].text.strip()
+    raw = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+
+    try:
+        summaries = json.loads(raw)
+        summary_map = {item["index"]: item for item in summaries}
+    except Exception as e:
+        print(f"  [AVISO] Falha ao parsear JSON do Claude: {e}")
+        summary_map = {}
+
+    enriched = []
+    for i, paper in enumerate(papers):
+        s = summary_map.get(i, {})
+        enriched.append({
+            **paper,
+            "resumo": s.get("resumo", "Resumo não disponível"),
+            "relevancia": s.get("relevancia", ""),
+            "nivel": s.get("nivel", "Intermediário"),
+        })
+    return enriched

@@ -2,7 +2,7 @@ name: Papers Newsletter
 
 on:
   schedule:
-    - cron: '0 11 * * 1'
+    - cron: '0 11 * * 2'
   workflow_dispatch:
 
 jobs:

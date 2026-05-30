@@ -1,3 +1,9 @@
+"""
+Weekly academic paper newsletter — collects papers from arXiv and Hugging Face,
+summarizes them in Brazilian Portuguese via Claude, and sends an HTML email via Resend.
+
+Usage: python3 newsletter.py (requires ANTHROPIC_API_KEY, RESEND_API_KEY, EMAIL_FROM, EMAIL_TO)
+"""
 import json
 import os
 import xml.etree.ElementTree as ET
@@ -5,6 +11,7 @@ import anthropic
 import httpx
 
 ARXIV_CATEGORIES = ["cs.AI", "cs.LG", "cs.CL", "cs.SE", "cs.CV", "cs.HC", "econ.GN"]
+# arXiv API responses are Atom XML — all elements must be prefixed with this namespace
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
 ARXIV_API_URL = "https://export.arxiv.org/api/query"
 
@@ -141,6 +148,7 @@ def summarize_papers(papers: list[dict]) -> list[dict]:
             authors_str += " et al."
         papers_text += f"[{i}] Título: {p['title']}\nAutores: {authors_str}\nAbstract: {p['abstract']}\n\n"
 
+    # All papers are sent in a single API call to minimize latency and cost
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     message = client.messages.create(
         model="claude-sonnet-4-6",

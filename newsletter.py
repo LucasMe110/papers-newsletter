@@ -6,7 +6,7 @@ import httpx
 
 ARXIV_CATEGORIES = ["cs.AI", "cs.LG", "cs.CL", "cs.SE", "cs.CV", "cs.HC", "econ.GN"]
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
-ARXIV_API_URL = "http://export.arxiv.org/api/query"
+ARXIV_API_URL = "https://export.arxiv.org/api/query"
 
 
 def fetch_arxiv_papers(category: str, max_results: int = 3) -> list[dict]:

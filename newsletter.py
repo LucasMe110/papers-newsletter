@@ -226,11 +226,11 @@ def render_email(papers: list[dict], edition_date: str) -> str:
 def send_email(html_content: str, subject: str) -> None:
     resend_key = os.environ["RESEND_API_KEY"]
     email_from = os.environ["EMAIL_FROM"]
-    email_to = os.environ["EMAIL_TO"]
+    recipients = [e.strip() for e in os.environ["EMAIL_RECIPIENTS"].split(",")]
 
     payload = {
         "from": email_from,
-        "to": [email_to],
+        "to": recipients,
         "subject": subject,
         "html": html_content,
     }

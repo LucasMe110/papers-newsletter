@@ -224,24 +224,25 @@ def render_email(papers: list[dict], edition_date: str) -> str:
 
 
 def send_email(html_content: str, subject: str) -> None:
-    resend_key = os.environ["RESEND_API_KEY"]
-    email_from = os.environ["EMAIL_FROM"]
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    gmail_user = os.environ["EMAIL_FROM"]
+    app_password = os.environ["GMAIL_APP_PASSWORD"]
     recipients = [e.strip() for e in os.environ["EMAIL_RECIPIENTS"].split(",")]
 
-    payload = {
-        "from": email_from,
-        "to": recipients,
-        "subject": subject,
-        "html": html_content,
-    }
-    response = httpx.post(
-        "https://api.resend.com/emails",
-        headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
-        json=payload,
-        timeout=30,
-    )
-    response.raise_for_status()
-    print(f"[4/4] Email enviado! ID: {response.json().get('id', 'N/A')}")
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = gmail_user
+    msg["To"] = ", ".join(recipients)
+    msg.attach(MIMEText(html_content, "html"))
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(gmail_user, app_password)
+        server.sendmail(gmail_user, recipients, msg.as_string())
+
+    print(f"[4/4] Email enviado para {len(recipients)} destinatário(s)!")
 
 
 def main() -> None:

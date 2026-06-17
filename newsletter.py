@@ -228,8 +228,10 @@ def send_email(html_content: str, subject: str) -> None:
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
 
-    gmail_user = os.environ["EMAIL_FROM"]
-    app_password = os.environ["GMAIL_APP_PASSWORD"]
+    gmail_user = os.environ["EMAIL_FROM"].strip()
+    # A App Password do Google é exibida com espaços ("abcd efgh ijkl mnop").
+    # Se for colada com espaços ou aspas no secret, o login falha com BadCredentials.
+    app_password = os.environ["GMAIL_APP_PASSWORD"].strip().strip('"').strip("'").replace(" ", "")
     recipients = [e.strip() for e in os.environ["EMAIL_RECIPIENTS"].split(",")]
 
     msg = MIMEMultipart("alternative")

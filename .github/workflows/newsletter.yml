@@ -3,14 +3,6 @@ name: Papers Newsletter
 on:
   schedule:
     - cron: '0 11 * * 2'
-    # TEMPORÁRIO: remarcado para 06/09 16:10 UTC, com mais folga. Remover depois.
-    - cron: '10 16 6 9 *'
-  # TEMPORÁRIO: prova que o workflow dispara sozinho, sem acionamento manual.
-  # paths-ignore evita que o commit do keepalive re-dispare o workflow.
-  push:
-    branches: [main]
-    paths-ignore:
-      - '.github/last-run.txt'
   workflow_dispatch:
 
 # Necessário para o passo de keepalive empurrar o commit de timestamp.
@@ -38,9 +30,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          # TEMPORÁRIO: no teste do cron manda só para o próprio remetente,
-          # para não duplicar a edição na caixa dos inscritos. Remover depois.
-          EMAIL_RECIPIENTS: ${{ (github.event_name == 'push' || github.event.schedule == '10 16 6 9 *') && secrets.EMAIL_FROM || secrets.EMAIL_RECIPIENTS }}
+          EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
         run: python3 newsletter.py
 
       # O GitHub desativa workflows agendados após 60 dias sem atividade no repositório.

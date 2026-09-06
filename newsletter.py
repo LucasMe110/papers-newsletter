@@ -1,12 +1,14 @@
 """
 Weekly academic paper newsletter — collects papers from arXiv and Hugging Face,
-summarizes them in Brazilian Portuguese via Claude, and sends an HTML email via Resend.
+summarizes them in Brazilian Portuguese via Claude, and sends an HTML email via Gmail SMTP.
 
-Usage: python3 newsletter.py (requires ANTHROPIC_API_KEY, RESEND_API_KEY, EMAIL_FROM, EMAIL_TO)
+Usage: python3 newsletter.py
+(requires ANTHROPIC_API_KEY, EMAIL_FROM, GMAIL_APP_PASSWORD, EMAIL_RECIPIENTS)
 """
 import json
 import os
 import xml.etree.ElementTree as ET
+from email.utils import parseaddr
 import anthropic
 import httpx
 
@@ -223,20 +225,50 @@ def render_email(papers: list[dict], edition_date: str) -> str:
 </html>"""
 
 
+def clean_env(name: str) -> str:
+    """Lê uma variável de ambiente tolerando aspas e espaços deixados ao colar o secret."""
+    value = os.environ[name].strip().strip('"').strip("'").strip()
+    if not value:
+        raise ValueError(f"Variável de ambiente {name} está vazia.")
+    return value
+
+
+def resolve_smtp_user() -> tuple[str, str]:
+    """Devolve (usuário do login SMTP, valor do cabeçalho From).
+
+    EMAIL_FROM pode vir como "Nome <email@dominio>" — formato herdado da época do Resend —
+    mas o login do Gmail exige o endereço puro, senão falha com 535 BadCredentials.
+    """
+    header = clean_env("EMAIL_FROM")
+    address = parseaddr(header)[1]
+    if "@" not in address:
+        raise ValueError(f"EMAIL_FROM não contém um endereço válido: {header!r}")
+    return address, header
+
+
+def resolve_recipients() -> list[str]:
+    """Divide EMAIL_RECIPIENTS (lista separada por vírgulas) descartando entradas vazias."""
+    entries = [e.strip().strip('"').strip("'").strip() for e in clean_env("EMAIL_RECIPIENTS").split(",")]
+    recipients = [e for e in entries if e]
+    if not recipients:
+        raise ValueError("EMAIL_RECIPIENTS não contém nenhum destinatário.")
+    return recipients
+
+
 def send_email(html_content: str, subject: str) -> None:
     import smtplib
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
 
-    gmail_user = os.environ["EMAIL_FROM"].strip()
-    # A App Password do Google é exibida com espaços ("abcd efgh ijkl mnop").
-    # Se for colada com espaços ou aspas no secret, o login falha com BadCredentials.
-    app_password = os.environ["GMAIL_APP_PASSWORD"].strip().strip('"').strip("'").replace(" ", "")
-    recipients = [e.strip() for e in os.environ["EMAIL_RECIPIENTS"].split(",")]
+    gmail_user, from_header = resolve_smtp_user()
+    # A App Password do Google é exibida com espaços ("abcd efgh ijkl mnop");
+    # o login só aceita a senha sem separadores.
+    app_password = clean_env("GMAIL_APP_PASSWORD").replace(" ", "")
+    recipients = resolve_recipients()
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = gmail_user
+    msg["From"] = from_header
     msg["To"] = ", ".join(recipients)
     msg.attach(MIMEText(html_content, "html"))
 
@@ -247,8 +279,17 @@ def send_email(html_content: str, subject: str) -> None:
     print(f"[4/4] Email enviado para {len(recipients)} destinatário(s)!")
 
 
+def validate_credentials() -> None:
+    """Valida o ambiente antes de coletar papers, para não gastar chamadas de API à toa."""
+    clean_env("ANTHROPIC_API_KEY")
+    clean_env("GMAIL_APP_PASSWORD")
+    resolve_smtp_user()
+    resolve_recipients()
+
+
 def main() -> None:
     import datetime
+    validate_credentials()
     today = datetime.date.today()
     edition_date = today.strftime("%d/%m/%Y")
 
